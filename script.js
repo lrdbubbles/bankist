@@ -56,3 +56,168 @@ const inputTransferAmount = document.querySelector('.form__input--amount');
 const inputLoanAmount = document.querySelector('.form__input--loan-amount');
 const inputCloseUsername = document.querySelector('.form__input--user');
 const inputClosePin = document.querySelector('.form__input--pin');
+
+
+//Display Movements
+
+const displayMovements = (movements, sort) => {
+  containerMovements.innerHTML = '';
+
+  const movs = sort ? movements.slice().sort((a, b) => a - b) : movements;
+
+  movs.forEach((mov, i)=> {
+    const type = mov > 0 ? 'deposit' : 'withdrawal';
+
+    const html = `
+<div class="movements__row">
+  <div class="movements__type movements__type--${type}">${i + 1} ${type}</div>
+  <div class="movements__value">${mov} €</div>
+</div>`;
+
+    containerMovements.insertAdjacentHTML('afterbegin', html);
+  });
+};
+
+
+//Display Balance
+
+const calcDisplayBalance = account => {
+  account.balance = account.movements.reduce((acc,mov)=>acc+mov,0);
+  labelBalance.textContent = `${account.balance} €`
+}
+
+
+//Display Summary
+
+const calcDisplaySummary = acc => {
+  const incomes = acc.movements.filter(mov => mov>0).reduce((acc,mov)=>acc+mov,0);
+  labelSumIn.textContent = `${incomes}€`;
+  const outcomes = acc.movements
+    .filter(mov => mov < 0)
+    .reduce((acc, mov) => acc + mov, 0);
+  labelSumOut.textContent = `${Math.abs(outcomes)} €`;
+
+  const interests = acc.movements
+    .filter(mov => mov > 0)
+    .map(deposit => (deposit * acc.interestRate) / 100)
+    .filter(int => int >= 1)
+    .reduce((acc, int) => acc + int, 0);
+
+  labelSumInterest.textContent = `${interests} €`;
+};
+
+
+//Creating Usernames
+
+const createUserNames =  (accs) => {
+  accs.forEach((acc) => {
+    acc.username = acc.owner
+      .toLowerCase()
+      .split(' ')
+      .map(name => name[0])
+      .join('');
+  });
+};
+createUserNames(accounts);
+
+
+//Update UI
+const updateUI = (account) => {
+  displayMovements(currentAccount.movements);
+  calcDisplayBalance(currentAccount);
+  calcDisplaySummary(currentAccount);
+};
+
+
+let currentAccount;
+
+
+//Fake login button
+
+btnLogin.addEventListener('click', function (e) {
+   e.preventDefault();
+
+  currentAccount = accounts.find(
+    acc => acc.username === inputLoginUsername.value
+  );
+  console.log(currentAccount);
+  if (currentAccount?.pin === Number(inputLoginPin.value)) {
+    
+    
+    labelWelcome.textContent = `Welcome back, ${
+      currentAccount.owner.split(' ')[0]
+    }`;
+    containerApp.style.opacity = 100;
+
+    
+    inputLoginUsername.value = inputLoginPin.value = '';
+    inputLoginPin.blur();
+
+ 
+    updateUI(currentAccount);
+  }
+});
+
+
+
+//Transfer money to someone
+btnTransfer.addEventListener('click', function (e) {
+  e.preventDefault();
+  const amount = Number(inputTransferAmount.value);
+  const recieverAcc = accounts.find(
+    acc => acc.username === inputTransferTo.value
+  );
+  inputTransferAmount.value = inputTransferTo.value = '';
+
+  if (
+    amount > 0 &&
+    recieverAcc &&
+    currentAccount.balance >= amount &&
+    recieverAcc?.username !== currentAccount.username
+  ) {
+    currentAccount.movements.push(-amount);
+    recieverAcc.movements.push(amount);
+
+    
+    updateUI(currentAccount);
+  }
+});
+
+
+//REQUESTING A LOAN
+
+btnLoan.addEventListener('click', function (e) {
+  e.preventDefault();
+
+  const amount = Number(inputLoanAmount.value);
+  if (amount > 0 && currentAccount.movements.some(mov => mov >= amount * 0.1)) {
+       currentAccount.movements.push(amount);
+      updateUI(currentAccount);
+  }
+  
+  inputLoanAmount.value = '';
+});
+
+
+///CLOSE ACCOUNT
+btnClose.addEventListener('click', function (e) {
+  e.preventDefault();
+  if (
+    inputCloseUsername.value === currentAccount.username &&
+    currentAccount.pin === Number(inputClosePin.value)
+  ) {
+    const index = accounts.findIndex(
+      account => account.username === currentAccount.username
+    );
+    accounts.splice(index, 1);
+      containerApp.style.opacity = 0;
+  }
+  inputCloseUsername.value = inputClosePin.value = '';
+});
+
+let sorted = false;
+btnSort.addEventListener('click', function (e) {
+  e.preventDefault();
+  displayMovements(currentAccount.movements, !sorted);
+  sorted = !sorted;
+});
